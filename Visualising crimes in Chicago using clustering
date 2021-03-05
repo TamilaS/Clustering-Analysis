@@ -1,0 +1,128 @@
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+%matplotlib inline
+import pylab as pl
+
+df=pd.read_csv('Crimes_2001_to_present_sample.csv')
+
+df.head(10)
+
+df.drop(['X Coordinate', 'Y Coordinate', 'Updated On', 'Location', 'Beat'], axis=1)
+
+print(df.Date.dtype)
+
+df['Date'] = pd.to_datetime(df.Date) 
+df['date'] = [d.date() for d in df['Date']]
+df['time'] = [d.time() for d in df['Date']]
+df.head()
+
+sub_df = df[['Ward', 'IUCR', 'District']]
+sub_df
+sub_df = sub_df.apply(lambda x:x.fillna(x.value_counts().index[0]))
+sub_df = sub_df.assign(IUCR = sub_df.IUCR.str.extract('(\d+)', expand=True).astype(int))
+sub_df.head()
+
+from sklearn.cluster import KMeans
+N = range(1, 10)
+kmeans = []
+for i in N:
+    kmeans.append(KMeans(i))
+    
+
+score = []
+for i in range(len(kmeans)):
+    score.append(kmeans[i].fit(sub_df).score(sub_df))
+    
+
+pl.plot(N,score)
+pl.xlabel('Number of Clusters')
+pl.ylabel('Score')
+pl.title('Elbow Curve')
+pl.show() 
+
+
+km = KMeans(n_clusters=4)
+km.fit(sub_df)
+y = km.predict(sub_df)
+
+sub_df['Cluster'] = y
+sub_df
+
+fig = plt.figure(figsize=(12,10))
+ax = fig.add_subplot(111, projection='3d')
+x = np.array(sub_df['Ward'])
+y = np.array(sub_df['IUCR'])
+z = np.array(sub_df['District'])
+
+ax.set_xlabel('Ward')
+ax.set_ylabel('IUCR')
+ax.set_zlabel('District')
+
+ax.scatter(x,y,z, marker="o", c = sub_df["Cluster"], s=60, cmap="jet")
+ax.view_init(azim=0)
+#print(ax.azim)
+plt.show()
+
+
+
+sub_df['IUCR'] = (sub_df['IUCR'] - sub_df['IUCR'].min())/(sub_df['IUCR'].max()-sub_df['IUCR'].min())
+sub_df['Ward'] = (sub_df['Ward'] - sub_df['Ward'].min())/(sub_df['Ward'].max()-sub_df['Ward'].min())
+sub_df['District'] = (sub_df['District'] - sub_df['District'].min())/(sub_df['District'].max()-sub_df['District'].min())
+
+
+N = range(1, 20)
+kmeans_norm = []
+for i in N:
+    kmeans_norm.append(KMeans(i))
+
+    
+score_norm = []
+for i in range(len(kmeans_norm)):
+    score_norm.append(kmeans_norm[i].fit(sub_df).score(sub_df))
+
+pl.plot(N,score_norm)
+pl.xlabel('Number of Clusters - Normalized')
+pl.ylabel('Score')
+pl.title('Elbow Curve')
+pl.show() 
+
+
+km_norm = KMeans(n_clusters=2)
+km_norm.fit(sub_df)
+y_norm = km_norm.predict(sub_df)
+labels_norm = km_norm.labels_
+sub_df['Clusters_norm'] = y_norm
+sub_df
+
+data = pd.read_csv('Wholesale customers data.csv')
+
+data.head()
+
+from sklearn.preprocessing import normalize
+
+data_scaled = normalize(data)
+data_scaled = pd.DataFrame(data_scaled, columns=data.columns)
+
+data_scaled.head()
+
+import scipy.cluster.hierarchy as shc
+plt.figure(figsize=(10, 7))  
+plt.title("Dendrogram")  
+dend = shc.dendrogram(shc.linkage(data_scaled, method='ward'))
+
+plt.figure(figsize=(10, 7))  
+plt.title("Dendrogram")  
+dend = shc.dendrogram(shc.linkage(data_scaled, method='ward'))
+plt.axhline(y=6, color='r', linestyle='--')
+
+
+from sklearn.cluster import AgglomerativeClustering
+cluster = AgglomerativeClustering(n_clusters=2, affinity='euclidean', linkage='ward')  
+cluster.fit_predict(data_scaled)
+
+plt.figure(figsize=(10, 7))  
+plt.scatter(data_scaled['Milk'], data_scaled['Grocery'], c=cluster.labels_) 
+
